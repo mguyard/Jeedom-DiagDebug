@@ -3,7 +3,7 @@
 require_once ('DiagDebug.class.php');
 
 try {
-    $diag = new DiagDebug('Diagral_eOne');
+    $diag = new MyPluginNameToChange\DiagDebug('Diagral_eOne');
     $diag->addPluginLogs();
     $diag->addJeedomLog('update');
     $diag->addJeedomLogs(array('openvpn', 'starting'));
