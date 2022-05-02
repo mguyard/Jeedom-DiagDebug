@@ -18,16 +18,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace MyPluginNameToChange;
 
 /* * ***************************Includes Jeedom Core ********************************* */
 require_once __DIR__  . '/../../../../core/php/core.inc.php';
 
 class DiagDebug {
 
-    private $diagDebugVersion = "0.1";
+    private $diagDebugVersion = "0.2";
     private $plugin;
     private $zip;
     private $webSRVPathBase;
+    private $pluginPath;
     private $zipStorage;
     private $contentAdded = FALSE;
 
@@ -45,20 +47,23 @@ class DiagDebug {
 
         // Params Verifications
         if (empty($pluginId)) {
-            throw new Exception(__METHOD__ . ' - You need to specify your pluginId');
+            throw new \Exception(__METHOD__ . ' - You need to specify your pluginId');
         }
-        $this->plugin = plugin::byId($pluginId);
-        if (! $this->plugin instanceof plugin) {
-            throw new Exception(__METHOD__ . ' - Unable to find plugin in Jeedom (based on pluginId provided)');
+        $this->plugin = \plugin::byId($pluginId);
+        if (! $this->plugin instanceof \plugin) {
+            throw new \Exception(__METHOD__ . ' - Unable to find plugin in Jeedom (based on pluginId provided)');
         }
 
         // Retreive WebSRV base path for Jeedom
         preg_match('/^(\/.*)\/core\/.*\/info.json$/', $this->plugin->getFilepath(), $webSRVBase);
         $this->webSRVPathBase = $webSRVBase[1];
 
+        // Set pluginPath
+        $this->pluginPath = $this->webSRVPathBase.'/plugins/' . $this->plugin->getId();
+
         // Set Default DiagDebug Archive storage if not specify
         if(is_null($zipStorage)) {
-            $this->zipStorage = $this->webSRVPathBase.'/plugins/' . $this->plugin->getId() . '/data/DiagDebug';
+            $this->zipStorage = $this->pluginPath . '/data/DiagDebug';
         } else {
             $this->zipStorage = rtrim($zipStorage, '/');
         }
@@ -67,16 +72,16 @@ class DiagDebug {
         }
 
         // Remove all old DiagDebug archives
-        foreach (glob($this->zipStorage . "/DiagDebug_" . $this->plugin->getId() . "_*.zip") as $filename) {
+        foreach (glob($this->zipStorage . "/DiagDebug_" . $this->plugin->getId() . "_*.ts") as $filename) {
             unlink($filename);
         }
 
         // Instance Zip
-        $now = new DateTime(null, new DateTimeZone('Europe/Paris'));
-        $this->zipFile = $this->zipStorage . "/DiagDebug_" . $this->plugin->getId() . "_" . $now->format('Y-m-d_H\hi') . ".zip";
-        $this->zip = new ZipArchive();
-        if ($this->zip->open($this->zipFile, ZipArchive::CREATE)!==TRUE) {
-            throw new Exception(__METHOD__ . ' - Unable to create DiagDebug Archive');
+        $now = new \DateTime('now', new \DateTimeZone('Europe/Paris'));
+        $this->zipFile = $this->zipStorage . "/DiagDebug_" . $this->plugin->getId() . "_" . $now->format('Y-m-d_H\hi') . ".ts";
+        $this->zip = new \ZipArchive();
+        if ($this->zip->open($this->zipFile, \ZipArchive::CREATE)!==TRUE) {
+            throw new \Exception(__METHOD__ . ' - Unable to create DiagDebug Archive');
         }
     }
 
@@ -94,7 +99,7 @@ class DiagDebug {
     {
         // Replace Magic Words
         $input = str_replace('#JEEBASE#', $this->webSRVPathBase, $input);
-        $input = str_replace('#PLUGBASE#', $this->webSRVPathBase.'/plugins/'.$this->plugin->getId(), $input);
+        $input = str_replace('#PLUGBASE#', $this->pluginPath, $input);
 
         // Return input with magic words replaced
         return $input;
@@ -117,7 +122,7 @@ class DiagDebug {
                 $this->addPluginLog($pluginLog, $lines);
             }
         } else {
-            throw new Exception(__METHOD__ . ' - Plugin don\'t have logs.');
+            throw new \Exception(__METHOD__ . ' - Plugin don\'t have logs.');
         }
     }
 
@@ -133,16 +138,16 @@ class DiagDebug {
      */
     public function addPluginLog(string $pluginLog, int $lines = NULL)
     {
-        $pluginLogPath = log::getPathToLog($pluginLog);
+        $pluginLogPath = \log::getPathToLog($pluginLog);
         if (is_null($lines)) {
             if (is_readable($pluginLogPath)) {
-                $this->zip->addFile($pluginLogPath, '/plugin/Logs/'.$pluginLog);
+                $this->zip->addFile($pluginLogPath, '/plugin/Logs/'.$pluginLog.'.log');
                 $this->contentAdded = TRUE;
             } else {
-                throw new Exception(__METHOD__ . ' - File ' . $pluginLogPath . ' isn\'t readable. We are not able to store this file');
+                throw new \Exception(__METHOD__ . ' - File ' . $pluginLogPath . ' isn\'t readable. We are not able to store this file');
             }
         } else {
-            $getLines = array_reverse(log::get($pluginLog, (count(file($pluginLogPath))-$lines), $lines));
+            $getLines = array_reverse(\log::get($pluginLog, (count(file($pluginLogPath))-$lines), $lines));
             $this->zip->addFromString('/plugin/Logs/'.$pluginLog, implode( "\n",$getLines));
             $this->contentAdded = TRUE;
         }
@@ -174,15 +179,15 @@ class DiagDebug {
      */
     public function addJeedomLog(string $log)
     {
-        if (empty(log::liste($log))) {
-            throw new Exception(__METHOD__ . ' - File ' . $log . ' don\'t exist in Jeedom. We are not able to store this file');
+        if (empty(\log::liste($log))) {
+            throw new \Exception(__METHOD__ . ' - File ' . $log . ' don\'t exist in Jeedom. We are not able to store this file');
         } else {
-            $logPath = log::getPathToLog($log);
+            $logPath = \log::getPathToLog($log);
             if (is_readable($logPath)) {
-                $this->zip->addFile($logPath, '/jeedom/Logs/'.$log);
+                $this->zip->addFile($logPath, '/jeedom/Logs/'.$log.'.log');
                 $this->contentAdded = TRUE;
             } else {
-                throw new Exception(__METHOD__ . ' - File ' . $logPath . ' isn\'t readable. We are not able to store this file');
+                throw new \Exception(__METHOD__ . ' - File ' . $logPath . ' isn\'t readable. We are not able to store this file');
             }
         }
     }
@@ -204,11 +209,11 @@ class DiagDebug {
                 // Replace Magic Words
                 $cmd = self::replaceMagicWords($cmd);
 
-                $storage .= "****************************************\n";
+                $storage = "****************************************\n";
                 $storage .= "*** Cmd : " . $cmd . "\n";
                 $storage .= "****************************************\n\n";
                 if ($sudo === TRUE) {
-                    $storage .= shell_exec(system::getCmdSudo().' '. $cmd . ' 2>&1');
+                    $storage .= shell_exec(\system::getCmdSudo().' '. $cmd . ' 2>&1');
                 } else {
                     $storage .= shell_exec($cmd . ' 2>&1');
                 }
@@ -216,13 +221,13 @@ class DiagDebug {
             }
             // If command is success, store result, else throw exception
             if (! is_null($storage)) {
-                $this->zip->addFromString('/Cmds/'.$filename, $storage);
+                $this->zip->addFromString('/Cmds/'.$filename.'.log', $storage);
                 $this->contentAdded = TRUE;
             } else {
-                throw new Exception(__METHOD__ . ' - Failed to execute command ' . $cmd);
+                throw new \Exception(__METHOD__ . ' - Failed to execute command ' . $cmd);
             }
         } else {
-            throw new Exception(__METHOD__ . ' - List of commands is empty');
+            throw new \Exception(__METHOD__ . ' - List of commands is empty');
         }
     }
 
@@ -256,16 +261,16 @@ class DiagDebug {
         $storage .= "*** Cmd : " . $cmd . "\n";
         $storage .= "****************************************\n\n";
         if ($sudo === TRUE) {
-            $storage .= shell_exec(system::getCmdSudo().' '. $cmd . ' 2>&1');
+            $storage .= shell_exec(\system::getCmdSudo().' '. $cmd . ' 2>&1');
         } else {
             $storage .= shell_exec($cmd . ' 2>&1');
         }
         // If command is success, store result, else throw exception
         if (! is_null($storage)) {
-            $this->zip->addFromString('/Cmds/'.$filename, $storage);
+            $this->zip->addFromString('/Cmds/'.$filename.'.log', $storage);
             $this->contentAdded = TRUE;
         } else {
-            throw new Exception(__METHOD__ . ' - Failed to execute command ' . $cmd);
+            throw new \Exception(__METHOD__ . ' - Failed to execute command ' . $cmd);
         }
     }
 
@@ -281,18 +286,18 @@ class DiagDebug {
     public function addPluginConf()
     {
         // Retreive and store all plugin Configurations
-        $pluginConfigurations = config::searchKey(NULL, $this->plugin->getId());
+        $pluginConfigurations = \config::searchKey(NULL, $this->plugin->getId());
         foreach ($pluginConfigurations as $key => &$pluginConfiguration) {
             // If configuration can be a Password, we hide it
-            if (preg_match('/(pass|password|pwd|mdp|motdepasse)/i', $pluginConfiguration['key'])) {
+            if (preg_match('/(pass|password|pwd|mdp|motdepasse|apikey)/i', $pluginConfiguration['key'])) {
                 $pluginConfiguration['value'] = "** HIDDED by DiagDebug **";
             }
         }
         if (!empty($pluginConfigurations)) {
-            $this->zip->addFromString('/plugin/configuration', json_encode($pluginConfigurations,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
+            $this->zip->addFromString('/plugin/configuration.txt', json_encode($pluginConfigurations,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
             $this->contentAdded = TRUE;
         } else {
-            throw new Exception(__METHOD__ . ' - No plugin configuration find');
+            throw new \Exception(__METHOD__ . ' - No plugin configuration find');
         }
     }
 
@@ -306,7 +311,7 @@ class DiagDebug {
     public function addAllPluginEqlogic()
     {
         $eqList = array();
-        foreach (eqLogic::byType($this->plugin->getId()) as $eqLogic) {
+        foreach (\eqLogic::byType($this->plugin->getId()) as $eqLogic) {
             $eqList[$eqLogic->getId()] = array (
                 'name' => $eqLogic->getName(),
                 'logicalId' => $eqLogic->getLogicalId(),
@@ -316,10 +321,10 @@ class DiagDebug {
             );
         }
         if (!empty($eqList)) {
-            $this->zip->addFromString('/plugin/deviceList', json_encode($eqList,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
+            $this->zip->addFromString('/plugin/deviceList.txt', json_encode($eqList,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
             $this->contentAdded = TRUE;
         } else {
-            throw new Exception(__METHOD__ . ' - No eqLogic find');
+            throw new \Exception(__METHOD__ . ' - No eqLogic find');
         }
     }
 
@@ -339,7 +344,7 @@ class DiagDebug {
                 $this->addFile($file);
             }
         } else {
-            throw new Exception(__METHOD__ . ' - List of files is empty.');
+            throw new \Exception(__METHOD__ . ' - List of files is empty.');
         }
     }
 
@@ -369,7 +374,7 @@ class DiagDebug {
             $this->zip->addFile($file, '/files/' . $file);
             $this->contentAdded = TRUE;
         } else {
-            throw new Exception(__METHOD__ . ' - File ' . $file . ' isn\'t readable. We are not able to store this file');
+            throw new \Exception(__METHOD__ . ' - File ' . $file . ' isn\'t readable. We are not able to store this file');
         }
     }
 
@@ -385,9 +390,9 @@ class DiagDebug {
         $this->zip->close();
         if (! file_exists($this->zipFile)) {
             if ($this->contentAdded === FALSE) {
-                throw new Exception(__METHOD__ . ' - DiagDebug archive don\'t content files so archive don\' exist.');
+                throw new \Exception(__METHOD__ . ' - DiagDebug archive don\'t content files so archive don\' exist.');
             } else {
-                throw new Exception(__METHOD__ . ' - DiagDebug archive don\'t exist. Probably due to an error.');
+                throw new \Exception(__METHOD__ . ' - DiagDebug archive don\'t exist. Probably due to an error.');
             }
             return array();
         } else {
